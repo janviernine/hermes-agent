@@ -1,3 +1,4 @@
+# health: allow FILE_LINES -- one DEFAULT_CONFIG key (desktop.ssh_keep_backend_on_quit); this pure-data dict has no function to move into a sibling
 """Default configuration data for Hermes Agent: DEFAULT_CONFIG and OPTIONAL_ENV_VARS.
 
 Pure-data leaf module — must not import from hermes_cli.config. Comments are the user-facing
@@ -2652,6 +2653,11 @@ DEFAULT_CONFIG = {
         # missing or broken. Empty = System32 OpenSSH, then Git for Windows' ssh.exe, then PATH.
         # Read by the app before its first window; restart to apply. Ignored off-Windows.
         "ssh_path": "",
+        # Leave the SSH connection's app-started backend (`serve --isolated` on the remote)
+        # running after Desktop quits. False = stop it, the #91668 fix. True = keep the serve
+        # and its lockfile so the next launch reuses it, and do not arm the 15-minute idle
+        # reaper. Removing or switching the connection still stops it.
+        "ssh_keep_backend_on_quit": False,
         # Auto-continue a turn killed by a crash: resuming re-submits the interrupted prompt if
         # fresh; a stale one just shows the recovered partial transcript.
         "auto_continue": {

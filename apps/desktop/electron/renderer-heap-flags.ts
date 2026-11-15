@@ -15,11 +15,27 @@ export interface DesktopLaunchConfig {
   rendererAccessibility?: boolean
   /** `desktop.ssh_path`: explicit Windows ssh client (#103288); unset when absent. */
   sshPath?: string
+  /** `desktop.ssh_keep_backend_on_quit`: leave the app-started SSH backend running after quit. */
+  sshKeepBackendOnQuit?: boolean
 }
 
 export interface PlannedSwitch {
   name: string
   value?: string
+}
+
+const TRUE_WORDS = ['1', 'true', 'yes', 'on', 'enabled']
+const FALSE_WORDS = ['0', 'false', 'no', 'off', 'disabled']
+
+/** YAML boolean word -> boolean; undefined for a word this reader does not know. */
+function readBooleanWord(raw: string): boolean | undefined {
+  const word = raw.trim().replace(/^(['"])(.*)\1$/, '$2').toLowerCase()
+
+  if (TRUE_WORDS.includes(word)) {
+    return true
+  }
+
+  return FALSE_WORDS.includes(word) ? false : undefined
 }
 
 /**
@@ -75,14 +91,10 @@ export function readDesktopLaunchConfig(yamlText: string): DesktopLaunchConfig {
       if (sshPath) {
         out.sshPath = sshPath
       }
+    } else if (key === 'ssh_keep_backend_on_quit') {
+      out.sshKeepBackendOnQuit = readBooleanWord(value)
     } else if (key === 'renderer_accessibility') {
-      const word = unquote(value).toLowerCase()
-
-      if (['0', 'false', 'no', 'off', 'disabled'].includes(word)) {
-        out.rendererAccessibility = false
-      } else if (['1', 'true', 'yes', 'on', 'enabled'].includes(word)) {
-        out.rendererAccessibility = true
-      }
+      out.rendererAccessibility = readBooleanWord(value)
     } else if (key === 'renderer_max_old_space_mb') {
       const mb = Number.parseInt(unquote(value), 10)
       out.rendererMaxOldSpaceMb = Number.isFinite(mb) && mb > 0 ? mb : 0
@@ -127,6 +139,20 @@ export function readDesktopLaunchConfig(yamlText: string): DesktopLaunchConfig {
   }
 
   return out
+}
+
+/** `desktop.ssh_keep_backend_on_quit` from config.yaml text; false when absent. */
+export function readSshKeepBackendOnQuit(yamlText: string): boolean {
+  return readDesktopLaunchConfig(yamlText).sshKeepBackendOnQuit === true
+}
+
+/** Same, from the file at `configPath`; an unreadable file keeps today's behavior. */
+export function readSshKeepBackendOnQuitFile(configPath: string, readFile: (path: string) => string): boolean {
+  try {
+    return readSshKeepBackendOnQuit(readFile(configPath))
+  } catch {
+    return false
+  }
 }
 
 /**

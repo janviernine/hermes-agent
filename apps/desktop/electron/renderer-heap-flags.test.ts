@@ -73,6 +73,19 @@ describe('renderer heap flags', () => {
     expect(readDesktopLaunchConfig('desktop:\n  renderer_accessibility: maybe\n').rendererAccessibility).toBeUndefined()
   })
 
+  it('reads the desktop.ssh_keep_backend_on_quit opt-in', () => {
+    expect(readDesktopLaunchConfig('desktop:\n  ssh_keep_backend_on_quit: true\n').sshKeepBackendOnQuit).toBe(true)
+    expect(
+      readDesktopLaunchConfig('desktop:\n  ssh_keep_backend_on_quit: "yes"  # keep it up\n').sshKeepBackendOnQuit
+    ).toBe(true)
+    expect(readDesktopLaunchConfig('desktop:\n  ssh_keep_backend_on_quit: false\n').sshKeepBackendOnQuit).toBe(false)
+    // Absent or a word the reader does not know: unset, so quit keeps today's behavior.
+    expect(readDesktopLaunchConfig('desktop:\n  ssh_path: ""\n').sshKeepBackendOnQuit).toBeUndefined()
+    expect(
+      readDesktopLaunchConfig('desktop:\n  ssh_keep_backend_on_quit: sometimes\n').sshKeepBackendOnQuit
+    ).toBeUndefined()
+  })
+
   it('warns once when a desktop block names the keys in an indentation it cannot read', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 

@@ -67,6 +67,12 @@ Rules worth knowing:
 - **Test** probes the connection's own HTTP *and* WebSocket legs, so a pass
   (the *"Reachable"* toast) means chat will actually work — not just that the
   host pinged.
+- **An SSH connection's backend is app-owned**: the app starts that remote
+  `hermes serve` and stops it when Desktop quits (the fix for a leaked serve
+  holding `state.db`). Set `desktop.ssh_keep_backend_on_quit: true` in
+  `config.yaml` to leave it running instead: quit skips the kill, the 15-minute
+  idle reaper is not armed, and the next launch reuses the live backend.
+  Removing or switching the connection still stops it.
 - **Duplicates are rejected when you save**: there is only ever one **local**
   entry; **remote** and **cloud** entries are deduplicated on the normalized
   URL (trimmed, trailing slashes stripped, lowercased — and across both

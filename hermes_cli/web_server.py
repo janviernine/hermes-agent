@@ -1230,11 +1230,16 @@ def _on_server_started(
     # is "does a client still hold a WebSocket" (#101626).
     if getattr(app.state, "ssh_isolated_clients", None) is not None:
         from hermes_cli.web_server_idle_exit import DEFAULT_IDLE_GRACE_S, start_idle_watchdog
-        try:
-            grace = float((load_config().get("dashboard") or {}).get("ssh_isolated_idle_grace_s", DEFAULT_IDLE_GRACE_S))
-        except (TypeError, ValueError):
-            grace = DEFAULT_IDLE_GRACE_S
-        start_idle_watchdog(server, app.state.ssh_isolated_clients, grace_s=grace)
+
+        cfg = load_config()
+        # Desktop was told to leave this backend up across its quit
+        # (`desktop.ssh_keep_backend_on_quit`); the idle reaper is what would end it anyway.
+        if not (cfg.get("desktop") or {}).get("ssh_keep_backend_on_quit"):
+            try:
+                grace = float((cfg.get("dashboard") or {}).get("ssh_isolated_idle_grace_s", DEFAULT_IDLE_GRACE_S))
+            except (TypeError, ValueError):
+                grace = DEFAULT_IDLE_GRACE_S
+            start_idle_watchdog(server, app.state.ssh_isolated_clients, grace_s=grace)
     if getattr(app.state, "ssh_isolated_clients", None) is not None or is_desktop_owned_backend():
         # The host's updater never restarts this backend (SSH-isolated: only the remote Desktop
         # client holds its token and owner nonce, #91668/#101626; Desktop-owned local serve:

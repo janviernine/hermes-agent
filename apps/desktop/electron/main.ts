@@ -541,7 +541,7 @@ import {
 } from './remote-ws-headers'
 import { enableRendererAccessibility } from './renderer-accessibility'
 import { missingRendererAssets, presentRendererIndexes } from './renderer-bundle'
-import { applyLaunchSwitches, readDesktopLaunchConfig } from './renderer-heap-flags'
+import { applyLaunchSwitches, readDesktopLaunchConfig, readSshKeepBackendOnQuitFile } from './renderer-heap-flags'
 import { loadRendererLoadErrorPage } from './renderer-load-error-page'
 import { attachRendererConsoleCapture, formatRendererBoundaryReport } from './renderer-log'
 import { fetchRosterSourceData } from './roster-source-fetch'
@@ -9379,7 +9379,7 @@ async function sshProbeReuseProof(baseUrl, token, spawnNonce) {
   }
 }
 
-async function teardownSshConnection(profile) {
+async function teardownSshConnection(profile, opts: { keepRemote?: boolean } = {}) {
   const scope = sshScopeKey(profile)
   sshIsolatedKeepalives.stop(scope)
   const state = sshConnections.get(scope)
@@ -9404,15 +9404,12 @@ async function teardownSshConnection(profile) {
         ownershipId: state.ownershipId || sshOwnershipKey(profile)
       },
       {
-        cleanupRemote:
-          state.remotePlatform === 'Windows'
-            ? async () => {
-                // connectWindowsRemote does not share POSIX lock/kill. Stay
-                // silent on the kill path, but leave a log so quit is not a
-                // mysterious no-op on Windows remotes.
-                sshRememberLog('[ssh] skip remote serve teardown on Windows remotes; POSIX disconnect does not apply')
-              }
-            : remoteLifecycle.disconnect
+        cleanupRemote: remoteLifecycle.quitKeepsRemoteBackend(state.remotePlatform, opts.keepRemote === true)
+          ? async () => {
+              // Windows remotes have no POSIX lock/kill; the opt-in key asks for the same on POSIX.
+              sshRememberLog('[ssh] leave the remote serve running (Windows remote, or desktop.ssh_keep_backend_on_quit)')
+            }
+          : remoteLifecycle.disconnect
       }
     )
   )
@@ -11607,8 +11604,11 @@ const quitFinalization = createQuitFinalization({
 })
 
 async function teardownSshForQuit(): Promise<void> {
+  // read at quit, not at launch, so a config edit applies without a relaunch first
+  const keepRemote = readSshKeepBackendOnQuitFile(path.join(HERMES_HOME, 'config.yaml'), file => fs.readFileSync(file, 'utf8'))
+
   for (const scope of sshConnections.keys()) {
-    void teardownSshConnection(scope || null).catch((error: unknown): void =>
+    void teardownSshConnection(scope || null, { keepRemote }).catch((error: unknown): void =>
       rememberLog(`SSH teardown failed: ${error instanceof Error ? error.message : String(error)}`)
     )
   }

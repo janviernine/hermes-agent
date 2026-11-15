@@ -803,6 +803,15 @@ async function cleanupStale(ssh, ownershipId, lock, pidAlive = true) {
   await removeLockfile(ssh, ownershipId)
 }
 
+/**
+ * Quit leaves the remote serve running when the user opted in
+ * (`desktop.ssh_keep_backend_on_quit`), or on Windows remotes, which have no
+ * POSIX lock/kill path. Every other teardown still stops the owned serve.
+ */
+export function quitKeepsRemoteBackend(remotePlatform: string | undefined, keepBackendOnQuit: boolean): boolean {
+  return keepBackendOnQuit || remotePlatform === 'Windows'
+}
+
 // Normal disconnect (quit, connection switch): reuse cleanupStale so we
 // kill only a provably-owned serve --isolated and drop our lockfile.
 // Closing the SSH transport first is not enough — spawn detaches with
